@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Deaftalk</string>
+    <string name="hintInput">Hier gibt man Text ein</string>
+    <string name="btnVorlesen">ausgewählten Text vorlesen</string>
+    <string name="btnDelMessage">Nachricht löschen</string>
+    <string name="btnDelAllHistory">Historie löschen</string>
+    <string name="btnSend">Text senden</string>
+    <string name="btnMic">Spracherkennung starten</string>
+    <string name="not_present">Spracherkennung nicht verfügbar</string>
+    <string name="prompt">Bitte Nachricht aufsprechen</string>
+    <string name="rbtMe">Ich</string>
+    <string name="rbtGuest">Gast</string>
+</resources>

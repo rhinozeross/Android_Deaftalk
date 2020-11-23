@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <Spinner
+        android:id="@+id/locale"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:focusedByDefault="false"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <Button
+        android:id="@+id/btnVorlesen"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/btnVorlesen"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/locale" />
+
+    <Button
+        android:id="@+id/btnDelMessage"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="@string/btnDelMessage"
+        app:layout_constraintEnd_toStartOf="@+id/btnDelAllHistory"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/btnVorlesen" />
+
+    <Button
+        android:id="@+id/btnDelAllHistory"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="@string/btnDelAllHistory"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@+id/btnDelMessage"
+        app:layout_constraintTop_toBottomOf="@+id/btnVorlesen" />
+
+    <ListView
+        android:id="@+id/Chatview"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:background="@drawable/jungle"
+        app:layout_constraintBottom_toTopOf="@+id/rBtnGUEST"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/btnDelMessage">
+    </ListView>
+
+    <RadioButton
+        android:id="@+id/rBtnGUEST"
+        android:layout_width="200dp"
+        android:layout_height="wrap_content"
+        android:onClick="rBtnGuest_onClick"
+        android:text="@string/rbtGuest"
+        app:layout_constraintBottom_toTopOf="@+id/editTextInput"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <RadioButton
+        android:id="@+id/rBtnME"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:checked="true"
+        android:onClick="rBtnMe_onClick"
+        android:text="@string/rbtMe"
+        app:layout_constraintBottom_toTopOf="@+id/editTextInput"
+        app:layout_constraintEnd_toStartOf="@+id/rBtnGUEST"
+        app:layout_constraintStart_toStartOf="parent" />
+
+    <EditText
+        android:id="@+id/editTextInput"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:ems="10"
+        android:hint="@string/hintInput"
+        android:inputType="text"
+        app:layout_constraintBottom_toTopOf="@+id/ibtnSend" />
+
+    <Button
+        android:id="@+id/ibtnSend"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/btnSend"
+        app:layout_constraintBottom_toTopOf="@+id/ibtnMic" />
+    <Button
+        android:id="@+id/ibtnMic"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/btnMic"
+        app:layout_constraintBottom_toBottomOf="parent"
+        tools:layout_editor_absoluteX="42dp" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

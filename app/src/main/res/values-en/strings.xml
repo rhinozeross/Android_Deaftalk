@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Deaftalk</string>
+    <string name="hintInput">Enter  your Text here</string>
+    <string name="btnVorlesen">Read selected Text aloud</string>
+    <string name="btnSend">Send Text</string>
+    <string name="btnMic">Start Voice Recognition</string>
+    <string name="not_present">Voice REcognition not available</string>
+    <string name="prompt">Please speak Text</string>
+    <string name="rbtMe">Me</string>
+    <string name="rbtGuest">Guest</string>
+    <string name="btnDelMessage">Delete Text</string>
+    <string name="btnDelAllHistory">Delete History</string>
+</resources>
