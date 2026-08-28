@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
 import '../main.dart';
@@ -32,13 +33,27 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   bool _speechAvailable = false;
   bool _isListening = false;
 
+  String _appVersion = ''; // App-Version aus pubspec (zur Laufzeit gelesen)
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _initTts();
     _initSpeech();
+    _initVersion();
     _loadHistory();
+  }
+
+  Future<void> _initVersion() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      if (mounted) {
+        setState(() => _appVersion = 'v${info.version} (${info.buildNumber})');
+      }
+    } catch (_) {
+      // Version optional – bei Fehler einfach nicht anzeigen
+    }
   }
 
   @override
@@ -206,7 +221,21 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Deaftalk')),
+      appBar: AppBar(
+        title: const Text('Deaftalk'),
+        actions: [
+          if (_appVersion.isNotEmpty)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: Text(
+                  _appVersion,
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ),
+            ),
+        ],
+      ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(8),
