@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
 import '../main.dart';
@@ -32,13 +33,27 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   bool _speechAvailable = false;
   bool _isListening = false;
 
+  String _appVersion = ''; // App-Version aus pubspec (zur Laufzeit gelesen)
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _initTts();
     _initSpeech();
+    _initVersion();
     _loadHistory();
+  }
+
+  Future<void> _initVersion() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      if (mounted) {
+        setState(() => _appVersion = 'v${info.version} (${info.buildNumber})');
+      }
+    } catch (_) {
+      // Version optional – bei Fehler einfach nicht anzeigen
+    }
   }
 
   @override
@@ -72,16 +87,17 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
     try {
       final langs = await _tts.getLanguages;
-      final list = (langs as List).map((e) => e.toString()).toSet().toList()
-        ..sort();
-      String? initial;
-      if (list.contains('de-DE')) {
-        initial = 'de-DE';
-      } else if (list.length > 3) {
-        initial = list[3]; // Original: spinner.setSelection(3)
-      } else if (list.isNotEmpty) {
-        initial = list.first;
+      final raw = (langs as List).map((e) => e.toString()).toList();
+      // Auf einheitliches Schema normalisieren und deduplizieren.
+      // byLabel: normalisiertes Label (z.B. "en-GB") -> erster echter
+      // Engine-Code (den die Engine sicher akzeptiert).
+      final byLabel = <String, String>{};
+      for (final code in raw) {
+        byLabel.putIfAbsent(_displayLocale(code), () => code);
       }
+      final list = byLabel.values.toList()
+        ..sort((a, b) => _displayLocale(a).compareTo(_displayLocale(b)));
+      final initial = _pickInitialLanguage(list);
       if (mounted) {
         setState(() {
           _languages = list;
@@ -91,6 +107,55 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     } catch (_) {
       // getLanguages kann auf manchen Plattformen fehlschlagen
     }
+  }
+
+  /// Wählt initial die System-Standard-Locale des Geräts.
+  /// Reihenfolge: exakte System-Locale (z.B. de-DE) -> gleiche Sprache mit
+  /// anderer Region -> Fallback Englisch (en-US bzw. irgendein en-*) ->
+  /// erster verfügbarer Eintrag. Vergleich case-insensitiv.
+  String? _pickInitialLanguage(List<String> list) {
+    if (list.isEmpty) return null;
+    final sys = WidgetsBinding.instance.platformDispatcher.locale;
+    final lang = sys.languageCode.toLowerCase();
+    final sysFull = (sys.countryCode != null && sys.countryCode!.isNotEmpty)
+        ? '$lang-${sys.countryCode!.toLowerCase()}'
+        : lang;
+    final lower = list.map((e) => e.toLowerCase()).toList();
+
+    // 1) exakte System-Locale, z.B. de-DE
+    var i = lower.indexOf(sysFull);
+    if (i >= 0) return list[i];
+
+    // 2) gleiche Sprache, andere Region, z.B. de-AT wenn de-DE fehlt
+    i = lower.indexWhere((e) => e == lang || e.startsWith('$lang-'));
+    if (i >= 0) return list[i];
+
+    // 3) Fallback Englisch
+    i = lower.indexOf('en-us');
+    if (i >= 0) return list[i];
+    i = lower.indexWhere((e) => e == 'en' || e.startsWith('en-'));
+    if (i >= 0) return list[i];
+
+    // 4) sonst erster Eintrag
+    return list.first;
+  }
+
+  /// Einheitliches Anzeige-Format im Schema "de-DE":
+  /// Sprache klein, Region groß. eSpeak-Sondervarianten wie
+  /// "en-GB-gbclan", "en-US-x-lvariant-nyc" oder "vi-VN-central" werden auf
+  /// die Basis-Locale (Sprache[-Region]) gekürzt.
+  String _displayLocale(String code) {
+    final parts = code.split(RegExp('[-_]'));
+    final lang = parts[0].toLowerCase();
+    if (parts.length >= 2) {
+      final region = parts[1];
+      // nur echte Regionen (2 Buchstaben oder 3 Ziffern) übernehmen,
+      // Erweiterungs-Marker wie "x" ignorieren
+      final isRegion = RegExp(r'^[A-Za-z]{2}$').hasMatch(region) ||
+          RegExp(r'^[0-9]{3}$').hasMatch(region);
+      if (isRegion) return '$lang-${region.toUpperCase()}';
+    }
+    return lang;
   }
 
   Future<void> _initSpeech() async {
@@ -205,13 +270,38 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    // Höhe der eingeblendeten Tastatur.
+    final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
     return Scaffold(
-      appBar: AppBar(title: const Text('Deaftalk')),
+      // Layout NICHT stauchen, wenn die Tastatur kommt – wir schieben den
+      // Inhalt stattdessen nach oben, damit das Chatfenster seine Größe behält.
+      resizeToAvoidBottomInset: false,
+      appBar: AppBar(
+        title: const Text('Deaftalk'),
+        actions: [
+          if (_appVersion.isNotEmpty)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: Text(
+                  _appVersion,
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ),
+            ),
+        ],
+      ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(8),
-          child: Column(
-            children: [
+        child: ClipRect(
+          child: Transform.translate(
+            // Gesamten Inhalt um die Tastaturhöhe nach oben verschieben:
+            // Eingabezeile bleibt über der Tastatur, oberer Block wandert
+            // nach oben aus dem sichtbaren Bereich.
+            offset: Offset(0, -keyboardInset),
+            child: Padding(
+              padding: const EdgeInsets.all(8),
+              child: Column(
+                children: [
               _buildLanguageSpinner(),
               const SizedBox(height: 8),
               ElevatedButton(
@@ -267,7 +357,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                           : 'Spracherkennung starten',
                 ),
               ),
-            ],
+                ],
+              ),
+            ),
           ),
         ),
       ),
@@ -284,7 +376,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         isDense: true,
       ),
       items: _languages
-          .map((l) => DropdownMenuItem(value: l, child: Text(l)))
+          .map((l) =>
+              DropdownMenuItem(value: l, child: Text(_displayLocale(l))))
           .toList(),
       onChanged: (v) => setState(() => _selectedLanguage = v),
     );
