@@ -1,7 +1,12 @@
+import 'dart:async';
+import 'dart:convert';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:speech_to_text/speech_to_text.dart';
+import 'package:vosk_flutter_service/vosk_flutter_service.dart';
 
 import '../main.dart';
 import '../models/eintrag.dart';
@@ -33,6 +38,20 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   bool _speechAvailable = false;
   bool _isListening = false;
 
+  // --- Offline-Spracherkennung (Vosk) für Android ---
+  // Auf Android fehlt oft ein System-RecognitionService (z.B. LineageOS ohne
+  // Google-Dienste). Daher nutzen wir dort Vosk offline. iOS/Web verwenden
+  // weiterhin den System-Recognizer via speech_to_text.
+  static const String _voskModelAsset =
+      'assets/models/vosk-model-small-de-0.15.zip';
+  bool get _useVosk =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+  SpeechService? _voskService;
+  bool _voskReady = false; // Modell + Service initialisiert
+  bool _voskLoading = false; // Modell wird gerade geladen
+  StreamSubscription<String>? _voskPartialSub;
+  StreamSubscription<String>? _voskResultSub;
+
   String _appVersion = ''; // App-Version aus pubspec (zur Laufzeit gelesen)
 
   @override
@@ -60,6 +79,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _tts.stop();
+    _voskPartialSub?.cancel();
+    _voskResultSub?.cancel();
+    _voskService?.stop();
+    _voskService?.dispose();
     _input.dispose();
     _scroll.dispose();
     super.dispose();
@@ -159,6 +182,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _initSpeech() async {
+    // Android: Vosk (offline). Das Modell wird erst beim ersten Mikrofon-Tipp
+    // geladen (spart Startzeit); der Button ist trotzdem sofort aktiv.
+    if (_useVosk) {
+      if (mounted) setState(() => _speechAvailable = true);
+      return;
+    }
+    // iOS/Web: System-Recognizer via speech_to_text
     try {
       final available = await _speech.initialize(
         onStatus: (status) {
@@ -174,6 +204,74 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     } catch (_) {
       if (mounted) setState(() => _speechAvailable = false);
     }
+  }
+
+  /// Lädt das gebündelte deutsche Vosk-Modell und startet den Sprachdienst.
+  /// Wird nur einmal (lazy) beim ersten Mikrofon-Tipp ausgeführt.
+  Future<void> _initVosk() async {
+    if (_voskReady || _voskLoading) return;
+    setState(() => _voskLoading = true);
+    try {
+      final modelPath = await ModelLoader().loadFromAssets(_voskModelAsset);
+      final vosk = VoskFlutterPlugin.instance();
+      final model = await vosk.createModel(modelPath);
+      final recognizer =
+          await vosk.createRecognizer(model: model, sampleRate: 16000);
+      final service = await vosk.initSpeechService(recognizer);
+
+      // Live-Zwischenergebnisse ins Eingabefeld schreiben.
+      _voskPartialSub = service.onPartial().listen((json) {
+        final text = _extractVoskText(json, 'partial');
+        if (text.isNotEmpty && mounted) {
+          setState(() => _input.text = text);
+        }
+      });
+      // Endergebnis übernehmen.
+      _voskResultSub = service.onResult().listen((json) {
+        final text = _extractVoskText(json, 'text');
+        if (text.isNotEmpty && mounted) {
+          setState(() => _input.text = text);
+        }
+      });
+
+      _voskService = service;
+      if (mounted) {
+        setState(() {
+          _voskReady = true;
+          _voskLoading = false;
+        });
+      }
+    } on MicrophoneAccessDeniedException {
+      if (mounted) {
+        setState(() {
+          _voskLoading = false;
+          _speechAvailable = false;
+        });
+        _showSnack('Mikrofon-Zugriff verweigert.');
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _voskLoading = false);
+        _showSnack('Spracherkennung konnte nicht geladen werden.');
+      }
+    }
+  }
+
+  /// Extrahiert das jeweilige Feld aus dem Vosk-JSON (z.B. {"partial":"..."}).
+  String _extractVoskText(String json, String field) {
+    try {
+      final map = jsonDecode(json) as Map<String, dynamic>;
+      return (map[field] as String?)?.trim() ?? '';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  void _showSnack(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(msg)));
   }
 
   Future<void> _loadHistory() async {
@@ -214,6 +312,25 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   Future<void> _onMic() async {
     if (!_speechAvailable) return;
+
+    // --- Android: Vosk offline ---
+    if (_useVosk) {
+      if (_voskLoading) return;
+      if (!_voskReady) {
+        await _initVosk();
+        if (!_voskReady) return; // Laden fehlgeschlagen
+      }
+      if (_isListening) {
+        await _voskService?.stop();
+        if (mounted) setState(() => _isListening = false);
+      } else {
+        if (mounted) setState(() => _isListening = true);
+        await _voskService?.start();
+      }
+      return;
+    }
+
+    // --- iOS/Web: System-Recognizer ---
     if (_isListening) {
       await _speech.stop();
       setState(() => _isListening = false);
@@ -347,14 +464,22 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               ),
               const SizedBox(height: 8),
               ElevatedButton.icon(
-                onPressed: _speechAvailable ? _onMic : null,
-                icon: Icon(_isListening ? Icons.mic : Icons.mic_none),
+                onPressed: (_speechAvailable && !_voskLoading) ? _onMic : null,
+                icon: _voskLoading
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Icon(_isListening ? Icons.mic : Icons.mic_none),
                 label: Text(
                   !_speechAvailable
                       ? 'Spracherkennung nicht verfügbar'
-                      : _isListening
-                          ? 'Höre zu … (zum Stoppen tippen)'
-                          : 'Spracherkennung starten',
+                      : _voskLoading
+                          ? 'Sprachmodell wird geladen …'
+                          : _isListening
+                              ? 'Höre zu … (zum Stoppen tippen)'
+                              : 'Spracherkennung starten',
                 ),
               ),
                 ],

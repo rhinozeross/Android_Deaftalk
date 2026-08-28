@@ -37,8 +37,10 @@ dependencies:
 
   # Text-to-Speech (Vorlesen)
   flutter_tts: ^4.2.0
-  # Speech-to-Text (Spracherkennung / Mikrofon)
+  # Speech-to-Text (Spracherkennung / Mikrofon) – System-Recognizer (iOS/Web)
   speech_to_text: ^7.0.0
+  # Offline-Spracherkennung (Android): funktioniert ohne Google-Dienste
+  vosk_flutter_service: ^0.1.2
   # Persistenz der Chat-Historie
   shared_preferences: ^2.3.2
   # Liest App-Version/Build-Nummer zur Laufzeit aus (Single Source: pubspec)
@@ -86,6 +88,7 @@ flutter:
 
   assets:
     - assets/images/
+    - assets/models/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
