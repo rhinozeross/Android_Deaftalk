@@ -1,22 +1,19 @@
 /// Ein einzelner Chat-Eintrag (entspricht der Java-Klasse `Eintrag`).
+///
+/// Die Auswahl ("markiert") ist reiner UI-Zustand und liegt daher nicht mehr
+/// im Modell, sondern im Screen (ausgewählter Index).
 class Eintrag {
   String eintrag; // der Nachrichtentext
-  bool markiert; // ausgewählt (im Original mit "X" markiert)
   bool fromMeOrYou; // true = Ich, false = Gast
 
   Eintrag({
     this.eintrag = 'Hier ist nichts drin',
-    this.markiert = false,
     this.fromMeOrYou = true,
   });
 
-  /// Anzeige-String wie im Original: "[X] Ich/Gast: text"
+  /// Anzeige-String wie im Original: "Ich/Gast: text"
   @override
-  String toString() {
-    final mark = markiert ? 'X ' : '';
-    final wer = fromMeOrYou ? 'Ich' : 'Gast';
-    return '$mark$wer: $eintrag';
-  }
+  String toString() => '${fromMeOrYou ? 'Ich' : 'Gast'}: $eintrag';
 
   Map<String, dynamic> toJson() => {
         'eintrag': eintrag,
@@ -26,6 +23,5 @@ class Eintrag {
   factory Eintrag.fromJson(Map<String, dynamic> json) => Eintrag(
         eintrag: json['eintrag'] as String? ?? '',
         fromMeOrYou: json['fromMeOrYou'] as bool? ?? true,
-        markiert: false,
       );
 }
