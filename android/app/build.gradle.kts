@@ -34,6 +34,15 @@ android {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
+            // R8 ist im Release aktiv (verschleiert/verkleinert). Ohne die
+            // Keep-Regeln in proguard-rules.pro würde JNA (von Vosk genutzt)
+            // umbenannt und die Spracherkennung beim Start crashen.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
         }
     }
 }
