@@ -1,0 +1,21 @@
+{
+  "@@locale": "de",
+  "languageLabel": "Sprache (Vorlesen)",
+  "readSelectedAloud": "ausgewählten Text vorlesen",
+  "deleteMessage": "Nachricht löschen",
+  "deleteHistory": "Historie löschen",
+  "inputHint": "Hier gibt man Text ein",
+  "sendText": "Text senden",
+  "speechNotAvailable": "Spracherkennung nicht verfügbar",
+  "loadingSpeechModel": "Sprachmodell wird geladen …",
+  "listeningTapToStop": "Höre zu … (zum Stoppen tippen)",
+  "startSpeechRecognition": "Spracherkennung starten",
+  "speakerMe": "Ich",
+  "speakerGuest": "Gast",
+  "pleaseMakeSelection": "Bitte treffen Sie eine Auswahl",
+  "micAccessDenied": "Mikrofon-Zugriff verweigert.",
+  "speechLoadFailed": "Spracherkennung konnte nicht geladen werden.",
+  "settingsTitle": "Einstellungen",
+  "settingsLanguage": "Sprache",
+  "languageSystem": "Systemsprache"
+}

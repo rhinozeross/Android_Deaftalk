@@ -6,7 +6,11 @@ import 'package:speech_to_text/speech_to_text.dart';
 import 'package:vosk_flutter_service/vosk_flutter_service.dart';
 
 typedef ResultCallback = void Function(String text);
-typedef ErrorCallback = void Function(String message);
+typedef ErrorCallback = void Function(SpeechError error);
+
+/// Fehlerursachen der Spracherkennung – die Anzeige-Texte werden im UI
+/// lokalisiert (der Service kennt keine UI-Sprache).
+enum SpeechError { micDenied, loadFailed }
 
 /// Abstraktion über die Spracherkennung.
 ///
@@ -102,10 +106,10 @@ class VoskSpeechRecognizer implements SpeechRecognizer {
       return true;
     } on MicrophoneAccessDeniedException {
       _available = false;
-      onError?.call('Mikrofon-Zugriff verweigert.');
+      onError?.call(SpeechError.micDenied);
       return false;
     } catch (_) {
-      onError?.call('Spracherkennung konnte nicht geladen werden.');
+      onError?.call(SpeechError.loadFailed);
       return false;
     }
   }

@@ -24,20 +24,27 @@ class TtsService {
     _tts.setErrorHandler((_) => onSpeakingDone());
   }
 
-  /// Lädt die verfügbaren Sprachen und wählt die System-Locale vor.
-  Future<void> loadLanguages(Locale systemLocale) async {
+  /// Lädt die verfügbaren Sprachen und wählt die passende Locale vor.
+  Future<void> loadLanguages(Locale locale) async {
     try {
       final langs = await _tts.getLanguages;
       final raw = (langs as List).map((e) => e.toString());
       languages = buildLanguageList(raw);
-      selectedLanguage = pickInitialLanguage(
-        languages,
-        languageCode: systemLocale.languageCode,
-        countryCode: systemLocale.countryCode,
-      );
+      selectForLocale(locale);
     } catch (_) {
       // getLanguages kann auf manchen Plattformen fehlschlagen
     }
+  }
+
+  /// Wählt (ohne Neuladen) die zur [locale] passende Sprache aus der bereits
+  /// geladenen Liste – z.B. wenn die App-Sprache umgestellt wird.
+  void selectForLocale(Locale locale) {
+    if (languages.isEmpty) return;
+    selectedLanguage = pickInitialLanguage(
+      languages,
+      languageCode: locale.languageCode,
+      countryCode: locale.countryCode,
+    );
   }
 
   /// Liest [text] in der gewählten Sprache vor.

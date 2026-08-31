@@ -1,16 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
-import '../main.dart';
+import '../l10n/app_localizations.dart';
 import '../models/eintrag.dart';
 import '../services/history_store.dart';
+import '../services/locale_controller.dart';
 import '../services/speech_recognizer.dart';
 import '../services/tts_service.dart';
+import '../theme/app_theme.dart';
 import '../utils/locale_utils.dart';
 import '../widgets/keyboard_inset_shifter.dart';
+import 'settings_screen.dart';
 
 class ChatScreen extends StatefulWidget {
-  const ChatScreen({super.key});
+  const ChatScreen({super.key, required this.localeController});
+
+  final LocaleController localeController;
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -35,10 +40,16 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   String _appVersion = ''; // App-Version aus pubspec (zur Laufzeit gelesen)
 
+  /// Aktive Locale: manuelle Auswahl (Einstellungen) oder System.
+  Locale get _effectiveLocale =>
+      widget.localeController.locale ??
+      WidgetsBinding.instance.platformDispatcher.locale;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    widget.localeController.addListener(_onLocaleChanged);
     _tts.init(onSpeakingDone: () {
       if (mounted) setState(() => _isSpeaking = false);
     });
@@ -48,9 +59,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _loadHistory();
   }
 
+  /// Bei App-Sprachwechsel die Vorlese-Sprache passend nachziehen.
+  void _onLocaleChanged() {
+    if (mounted) setState(() => _tts.selectForLocale(_effectiveLocale));
+  }
+
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    widget.localeController.removeListener(_onLocaleChanged);
     _tts.stop();
     _recognizer.dispose();
     _input.dispose();
@@ -77,7 +94,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       onListeningStopped: () {
         if (mounted) setState(() => _isListening = false);
       },
-      onError: _showSnack,
+      onError: _onSpeechError,
     );
     _recognizer.initialize().then((_) {
       if (mounted) setState(() {}); // Button-Verfügbarkeit aktualisieren
@@ -85,7 +102,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _loadLanguages() async {
-    await _tts.loadLanguages(WidgetsBinding.instance.platformDispatcher.locale);
+    await _tts.loadLanguages(_effectiveLocale);
     if (mounted) setState(() {});
   }
 
@@ -131,6 +148,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       ..showSnackBar(SnackBar(content: Text(msg)));
   }
 
+  void _onSpeechError(SpeechError error) {
+    if (!mounted) return;
+    final l = AppLocalizations.of(context);
+    _showSnack(switch (error) {
+      SpeechError.micDenied => l.micAccessDenied,
+      SpeechError.loadFailed => l.speechLoadFailed,
+    });
+  }
+
   // ---- Aktionen (entsprechen den onClick-Methoden im Original) ----
 
   void _onSend() {
@@ -168,7 +194,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final sel = _selectedIndex;
     final text = (sel != null && sel < _messages.length)
         ? _messages[sel].eintrag
-        : 'Bitte treffen Sie eine Auswahl';
+        : AppLocalizations.of(context).pleaseMakeSelection;
     setState(() => _isSpeaking = true);
     await _tts.speak(text);
   }
@@ -206,11 +232,18 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         actions: [
           if (_appVersion.isNotEmpty)
             Center(
-              child: Padding(
-                padding: const EdgeInsets.only(right: 12),
-                child: Text(_appVersion, style: const TextStyle(fontSize: 12)),
+              child: Text(_appVersion, style: const TextStyle(fontSize: 12)),
+            ),
+          IconButton(
+            icon: const Icon(Icons.settings),
+            tooltip: AppLocalizations.of(context).settingsTitle,
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) =>
+                    SettingsScreen(controller: widget.localeController),
               ),
             ),
+          ),
         ],
       ),
       body: SafeArea(
@@ -225,13 +258,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   Widget _buildBody() {
+    final l = AppLocalizations.of(context);
     return Column(
       children: [
         _buildLanguageSpinner(),
         const SizedBox(height: 8),
         ElevatedButton(
           onPressed: _isSpeaking ? null : _onVorlesen,
-          child: const Text('ausgewählten Text vorlesen'),
+          child: Text(l.readSelectedAloud),
         ),
         const SizedBox(height: 8),
         Row(
@@ -239,14 +273,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             Expanded(
               child: ElevatedButton(
                 onPressed: _onDelMessage,
-                child: const Text('Nachricht löschen'),
+                child: Text(l.deleteMessage),
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
               child: ElevatedButton(
                 onPressed: _onDelAll,
-                child: const Text('Historie löschen'),
+                child: Text(l.deleteHistory),
               ),
             ),
           ],
@@ -256,9 +290,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         _buildSpeakerRadios(),
         TextField(
           controller: _input,
-          decoration: const InputDecoration(
-            hintText: 'Hier gibt man Text ein',
-            border: OutlineInputBorder(),
+          decoration: InputDecoration(
+            hintText: l.inputHint,
+            border: const OutlineInputBorder(),
             isDense: true,
           ),
           textInputAction: TextInputAction.send,
@@ -268,7 +302,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         ElevatedButton.icon(
           onPressed: _onSend,
           icon: const Icon(Icons.send),
-          label: const Text('Text senden'),
+          label: Text(l.sendText),
         ),
         const SizedBox(height: 8),
         _buildMicButton(),
@@ -280,9 +314,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     return DropdownButtonFormField<String>(
       initialValue: _tts.selectedLanguage,
       isExpanded: true,
-      decoration: const InputDecoration(
-        labelText: 'Sprache (Vorlesen)',
-        border: OutlineInputBorder(),
+      decoration: InputDecoration(
+        labelText: AppLocalizations.of(context).languageLabel,
+        border: const OutlineInputBorder(),
         isDense: true,
       ),
       items: _tts.languages
@@ -294,14 +328,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   Widget _buildSpeakerRadios() {
+    final l = AppLocalizations.of(context);
     return RadioGroup<bool>(
       groupValue: _fromMeOrYou,
       onChanged: (v) => setState(() => _fromMeOrYou = v ?? true),
-      child: const Row(
+      child: Row(
         children: [
           Expanded(
             child: RadioListTile<bool>(
-              title: Text('Ich'),
+              title: Text(l.speakerMe),
               value: true,
               contentPadding: EdgeInsets.zero,
               dense: true,
@@ -309,7 +344,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           ),
           Expanded(
             child: RadioListTile<bool>(
-              title: Text('Gast'),
+              title: Text(l.speakerGuest),
               value: false,
               contentPadding: EdgeInsets.zero,
               dense: true,
@@ -321,6 +356,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   Widget _buildMicButton() {
+    final l = AppLocalizations.of(context);
     final available = _recognizer.available;
     return ElevatedButton.icon(
       onPressed: (available && !_sttLoading) ? _onMic : null,
@@ -333,12 +369,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           : Icon(_isListening ? Icons.mic : Icons.mic_none),
       label: Text(
         !available
-            ? 'Spracherkennung nicht verfügbar'
+            ? l.speechNotAvailable
             : _sttLoading
-                ? 'Sprachmodell wird geladen …'
+                ? l.loadingSpeechModel
                 : _isListening
-                    ? 'Höre zu … (zum Stoppen tippen)'
-                    : 'Spracherkennung starten',
+                    ? l.listeningTapToStop
+                    : l.startSpeechRecognition,
       ),
     );
   }
@@ -366,6 +402,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   Widget _buildMessageTile(int index, Eintrag e) {
+    final l = AppLocalizations.of(context);
     final selected = index == _selectedIndex;
     return GestureDetector(
       onTap: () => _onSelect(index),
@@ -384,7 +421,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         child: Row(
           children: [
             Text(
-              '${e.fromMeOrYou ? "Ich" : "Gast"}: ',
+              '${e.fromMeOrYou ? l.speakerMe : l.speakerGuest}: ',
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
             Expanded(child: Text(e.eintrag)),

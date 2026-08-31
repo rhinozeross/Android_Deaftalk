@@ -1,50 +1,37 @@
 import 'package:flutter/material.dart';
 
+import 'l10n/app_localizations.dart';
 import 'screens/chat_screen.dart';
+import 'services/locale_controller.dart';
+import 'theme/app_theme.dart';
 
-void main() {
-  runApp(const DeaftalkApp());
-}
-
-/// Farben aus dem Original (res/values/colors.xml).
-class DeaftalkColors {
-  static const primary = Color(0xFF1CE805);
-  static const primaryDark = Color(0xFF03AE0C);
-  static const accent = Color(0xFFFFEB3B);
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final localeController = LocaleController();
+  await localeController.load();
+  runApp(DeaftalkApp(localeController: localeController));
 }
 
 class DeaftalkApp extends StatelessWidget {
-  const DeaftalkApp({super.key});
+  const DeaftalkApp({super.key, required this.localeController});
+
+  final LocaleController localeController;
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Deaftalk',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: DeaftalkColors.primary,
-          primary: DeaftalkColors.primary,
-          secondary: DeaftalkColors.accent,
-          brightness: Brightness.light,
-        ),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: DeaftalkColors.primaryDark,
-          foregroundColor: Colors.white,
-        ),
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: DeaftalkColors.primary,
-            foregroundColor: Colors.black,
-            minimumSize: const Size.fromHeight(44),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(6),
-            ),
-          ),
-        ),
-      ),
-      home: const ChatScreen(),
+    return ListenableBuilder(
+      listenable: localeController,
+      builder: (context, _) {
+        return MaterialApp(
+          title: 'Deaftalk',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.light(),
+          locale: localeController.locale,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: ChatScreen(localeController: localeController),
+        );
+      },
     );
   }
 }
