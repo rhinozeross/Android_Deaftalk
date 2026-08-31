@@ -1,0 +1,21 @@
+{
+  "@@locale": "en",
+  "languageLabel": "Language (read aloud)",
+  "readSelectedAloud": "Read selected text aloud",
+  "deleteMessage": "Delete message",
+  "deleteHistory": "Delete history",
+  "inputHint": "Enter your text here",
+  "sendText": "Send text",
+  "speechNotAvailable": "Speech recognition not available",
+  "loadingSpeechModel": "Loading speech model …",
+  "listeningTapToStop": "Listening … (tap to stop)",
+  "startSpeechRecognition": "Start speech recognition",
+  "speakerMe": "Me",
+  "speakerGuest": "Guest",
+  "pleaseMakeSelection": "Please make a selection",
+  "micAccessDenied": "Microphone access denied.",
+  "speechLoadFailed": "Could not load speech recognition.",
+  "settingsTitle": "Settings",
+  "settingsLanguage": "Language",
+  "languageSystem": "System default"
+}
